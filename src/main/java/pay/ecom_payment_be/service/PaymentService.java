@@ -1,5 +1,6 @@
 package pay.ecom_payment_be.service;
 
+import com.yourapp.events.payment.PaymentProcessedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -9,12 +10,15 @@ import pay.ecom_payment_be.client.OrderServiceClient;
 import pay.ecom_payment_be.dto.request.ConfirmPaymentRequest;
 import pay.ecom_payment_be.dto.request.CreatePaymentIntentRequest;
 import pay.ecom_payment_be.dto.response.PaymentIntentResponse;
+import pay.ecom_payment_be.event.PaymentEventPublisher;
 import pay.ecom_payment_be.model.PaymentIntent;
 import pay.ecom_payment_be.model.PaymentIntentStatus;
 import pay.ecom_payment_be.repository.PaymentIntentRepository;
 import pay.ecom_payment_be.util.PaymentWidgetHtml;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.UUID;
@@ -32,6 +36,7 @@ public class PaymentService {
 
     private final PaymentIntentRepository paymentIntentRepository;
     private final OrderServiceClient orderServiceClient;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     public PaymentIntentResponse createIntent(CreatePaymentIntentRequest request) {
         PaymentIntent intent = new PaymentIntent();
@@ -72,6 +77,17 @@ public class PaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "Payment captured but order confirmation failed; please refresh the order page");
         }
+
+        paymentEventPublisher.publishPaymentProcessed(new PaymentProcessedEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                saved.getOrderId(),
+                saved.getId(),
+                BigDecimal.valueOf(saved.getAmount()),
+                saved.getCurrency(),
+                PaymentProcessedEvent.PaymentStatus.SUCCEEDED,
+                null
+        ));
 
         log.info("Payment intent {} confirmed for order {}", saved.getId(), saved.getOrderId());
         return mapToResponse(saved);
