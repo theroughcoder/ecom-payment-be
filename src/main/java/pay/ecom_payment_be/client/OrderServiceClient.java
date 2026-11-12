@@ -1,5 +1,6 @@
 package pay.ecom_payment_be.client;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -10,9 +11,10 @@ import java.util.Map;
 public class OrderServiceClient {
     private final RestClient restClient;
 
-    public OrderServiceClient(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder
-                .baseUrl("http://ECOM-ORDER-BE")  // Eureka service name
+    public OrderServiceClient(RestClient.Builder restClientBuilder,
+                              @Value("${services.order.url}") String orderServiceUrl) {
+        this.restClient = restClientBuilder.clone()
+                .baseUrl(orderServiceUrl)  // direct URL, no Eureka lookup
                 .build();
     }
 
